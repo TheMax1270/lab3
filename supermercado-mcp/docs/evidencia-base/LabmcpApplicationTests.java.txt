@@ -1,0 +1,40 @@
+package com.example.labmcp;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
+import com.example.labmcp.service.TareaToolsService;
+import com.example.labmcp.repository.TareaRepository;
+import org.springframework.ai.tool.ToolCallbackProvider;
+import static org.assertj.core.api.Assertions.assertThat;
+
+@SpringBootTest
+class LabmcpApplicationTests {
+    @Autowired TareaToolsService tools;
+    @Autowired TareaRepository repository;
+    @Autowired ToolCallbackProvider callbacks;
+
+	@Test
+	void contextLoads() {
+		assertThat(callbacks.getToolCallbacks()).hasSize(7);
+	}
+
+    @Test
+    @Transactional
+    void herramientasPersistenYConsultanTareas() {
+        var tarea = tools.crearTarea("verificacion-lab-" + java.util.UUID.randomUUID(), "2026-11-18");
+        repository.flush();
+        assertThat(tarea.getId()).isNotNull();
+        assertThat(tools.listarTareas()).extracting("id").contains(tarea.getId());
+        assertThat(tools.listarPendientes()).extracting("id").contains(tarea.getId());
+        assertThat(tools.buscarTareas(tarea.getTitulo().toUpperCase())).extracting("id").contains(tarea.getId());
+        tools.actualizarTarea(tarea.getId(), "Titulo actualizado", "2026-11-19");
+        assertThat(repository.findById(tarea.getId()).orElseThrow().getTitulo()).isEqualTo("Titulo actualizado");
+        assertThat(tools.marcarCompletada(tarea.getId()).getCompletado()).isTrue();
+        tools.eliminarTarea(tarea.getId());
+        repository.flush();
+        assertThat(repository.existsById(tarea.getId())).isFalse();
+    }
+
+}
